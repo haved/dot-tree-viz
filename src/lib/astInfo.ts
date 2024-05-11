@@ -183,9 +183,12 @@ export class EdgeInfo extends ElementInfo {
   }
 }
 
-function addToMap(elementInfo: ElementInfo, map: Map<string, ElementInfo>) {
-  if (map.has(elementInfo.id)) throw new Error(`id '${elementInfo.id}' occured multiple times`);
-  map.set(elementInfo.id, elementInfo);
+function addToMap(elementInfo: ElementInfo, map: Map<string, ElementInfo>, addWarning?: (message: string)=>void) {
+  if (!map.has(elementInfo.id)) {
+    map.set(elementInfo.id, elementInfo);
+  } else if (addWarning) {
+    addWarning(`id '${elementInfo.id}' occured multiple times`);
+  }
 }
 
 function unEscapeHTML(text: string) {
@@ -241,7 +244,7 @@ function findOrCreateAttribute(node: ASTNode, attributeName: string): AttributeA
   return createdAttribute;
 }
 
-function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, ElementInfo>) {
+function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, ElementInfo>, addWarning?: (warning: string)=>void) {
   // Create a map of the attributes
   const attributes = new Map<string, Attribute>();
   for (const child of astNode.children) {
@@ -253,24 +256,24 @@ function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, Element
   if (astNode.type === 'Graph') {
     // Ignore the id of the graph in the AST, as it may be undefined
     const graphInfo = new GraphInfo(graphId, attributes, astNode);
-    addToMap(graphInfo, map);
+    addToMap(graphInfo, map, addWarning);
   } else if (astNode.type === 'Node') {
     const id = astNode.id.value;
     const nodeInfo = new NodeInfo(id, graphId, attributes, astNode);
 
-    addToMap(nodeInfo, map);
+    addToMap(nodeInfo, map, addWarning);
 
     // html table labels may have table cells with custom ports
     const label: Attribute | undefined = attributes.get('label');
     if (label && label.quoted === 'html') {
-      const portRegex = /<TD[^<>]*port\s*=\s*"([^"]*)"[^<>]*>/gi;
+      const portRegex = /<TD[^<>"]*("[^<>"]*"[^<>"]*)*\sport\s*=\s*"([^"]*)"[^<>]*>/gi;
       for (const match of label.value.matchAll(portRegex)) {
         const fullTag = match[0];
-        const portId = match[1];
+        const portId = match[2];
 
         // find all other attributes of the starting tag of this port
         const portAttributes = new Map<string, Attribute>();
-        const attributeRegex = /\s([a-zA-Z0-9]*)\s*=\s*"([^"<>]*)"/g;
+        const attributeRegex = /\s([^<>"]*)\s*=\s*"([^"<>]*)"/g;
         for (const attribute of fullTag.matchAll(attributeRegex)) {
           const key = attribute[1].toLowerCase();
           const value = unEscapeHTML(attribute[2]);
@@ -280,29 +283,30 @@ function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, Element
         portAttributes.delete('port');
 
         const portInfo = new PortInfo(portId, graphId, portAttributes, nodeInfo);
-        addToMap(portInfo, map);
-        addToMap(portInfo, nodeInfo.ports);
+        addToMap(portInfo, map, addWarning);
+        addToMap(portInfo, nodeInfo.ports, addWarning);
       }
     }
   } else if (astNode.type === 'Edge') {
     let id: string | undefined = attributes.get('id')?.value;
     if (id === undefined) id = createUniqueEdgeId();
 
-    addToMap(new EdgeInfo(id, graphId, attributes, astNode), map);
+    addToMap(new EdgeInfo(id, graphId, attributes, astNode), map, addWarning);
   }
 
   // Recursively visit children of graphs and subgraphs, to ensure all nodes are found
   if (astNode.type == 'Graph' || astNode.type == 'Subgraph') {
-    for (const child of astNode.children) traverseAst(child, graphId, map);
+    for (const child of astNode.children) traverseAst(child, graphId, map, addWarning);
   }
 }
 
 export function createElementInfoOfGraphAst(
   graph: GraphASTNode,
-  graphId: string
+  graphId: string,
+  addWarning?: (warning: string)=>void
 ): Map<string, ElementInfo> {
   const map = new Map<string, ElementInfo>();
-  traverseAst(graph, graphId, map);
+  traverseAst(graph, graphId, map, addWarning);
 
   // After traversing, inform nodes about the edges connected to them
   for (const element of map.values()) {
@@ -312,9 +316,12 @@ export function createElementInfoOfGraphAst(
       const fromNode = map.get(fro.nodeId);
       const toNode = map.get(to.nodeId);
       const targetsAreNodes = fromNode instanceof NodeInfo && toNode instanceof NodeInfo;
-      if (!targetsAreNodes) throw new Error('Edge has targets that are not nodes!');
-      addToMap(element, toNode.edges);
-      addToMap(element, fromNode.edges);
+      if (targetsAreNodes) {
+        addToMap(element, toNode.edges, addWarning);
+        addToMap(element, fromNode.edges, addWarning);
+      } else if (addWarning) {
+        addWarning(`edge ${element.id} has targets that are not nodes!`);
+      }
     }
   }
 

@@ -13,6 +13,7 @@
   let warnings: [string] = [];
   const history = localStore<string | null>('history', null);
   let graphElementSelected: string | undefined;
+  let searchString: string = '';
 
   function addWarning(text: string) {
     warnings = [...warnings, text];
@@ -38,8 +39,14 @@
     history.set(null);
   }
 
+  function clearSearch() {
+    searchString = undefined;
+  }
+
   function clearGraphs() {
+    warnings = [];
     textInput = '';
+    searchString = '';
     graphTree = null;
     graphTreeSelection = null;
   }
@@ -59,19 +66,28 @@
   function selectGraphElement(event: any) {
     const elementId: string | undefined = event.detail?.elementId;
 
+    // Selecting an element removes the search string
+    searchString = '';
     if (elementId === graphElementSelected) graphElementSelected = undefined;
     else graphElementSelected = elementId;
   }
 
  // Returns a mapping from element id to highlighting color
- function getHighlightsFromSelecting(graphTree: GraphTree | null, graphElementSelected: string | undefined): Map<string, string> {
-   if (graphTree === null || graphElementSelected === undefined)
+ function getHighlights(graphTree: GraphTree | null, graphElementSelected: string | undefined, searchString: string): Map<string, string> {
+   if (graphTree === null)
       return new Map();
 
-    return graphTree.getHighlightsFromSelecting(graphElementSelected);
+   if (searchString !== '')
+     return graphTree.getHighlightsFromSearch(searchString);
+
+   if (graphElementSelected !== undefined)
+     return graphTree.getHighlightsFromSelecting(graphElementSelected);
+
+   return new Map();
   }
 
- $: highlightedElements = getHighlightsFromSelecting(graphTree, graphElementSelected);
+ $: searching = searchString !== '';
+ $: highlightedElements = getHighlights(graphTree, graphElementSelected, searchString);
 
 </script>
 
@@ -89,6 +105,10 @@
           {sidebarOpen ? "Hide sidebar" : "Show sidebar"}
         </button>
         <button on:click={clearGraphs}>Clear</button>
+        <input bind:value={searchString} placeholder="Search..." />
+        {#if searching}
+          <button on:click={clearSearch}>Clear search</button>
+        {/if}
       {:else}
         <input bind:value={textInput} />
         <button on:click={importGraphsFromTextField}>Import</button>
@@ -115,7 +135,9 @@
           />
         {/each}
       </div>
+      {#if !searching}
       <ElementInfoArea {graphTree} {graphElementSelected} {highlightedElements} />
+      {/if}
     {/if}
   </section>
 

@@ -11,13 +11,15 @@ export class Graph {
   children: Graph[];
   parent: Graph | null;
 
-  constructor(id: string, source: string) {
+  constructor(id: string, source: string, addWarning?: (warning: string)=>void) {
     this.id = id;
     this.source = source;
 
     const ast = parse(source).children[0];
-    if (ast.type !== 'Graph') throw new Error('Top level ast node is not a Graph!');
-    this.astElementInfo = createElementInfoOfGraphAst(ast, this.id);
+    if (ast.type !== 'Graph')
+      throw new Error('Top level ast node is not a Graph!');
+
+    this.astElementInfo = createElementInfoOfGraphAst(ast, this.id, addWarning);
 
     this.children = [];
     this.parent = null;
@@ -95,17 +97,19 @@ export class GraphTree {
     while (start != null) {
       const next = digraphStart.exec(source);
 
-      const name = start[1];
+      let name = start[1];
       const graphSource = source.substring(start.index, next ? next.index : source.length);
 
-      if (graphs.has(name)) addWarning(`Multiple graphs share id: '${name}'`);
-      else
-        try {
-          graphs.set(name, new Graph(name, graphSource));
-        } catch (e: any) {
-          addWarning(e.message);
-        }
+      while (graphs.has(name)) {
+        addWarning(`Multiple graphs share id: '${name}', adding a suffix.`);
+        name = name + "_"
+      }
 
+      try {
+        graphs.set(name, new Graph(name, graphSource, addWarning));
+      } catch(e: any) {
+        addWarning(`Graph ${name}: ${e.message}`);
+      }
       start = next;
     }
 
@@ -154,6 +158,27 @@ export class GraphTree {
     }
 
     info.addHighlightsFromSelecting(result);
+
+    return result;
+  }
+
+  getHighlightsFromSearch(searchString: string): Map<string, string> {
+    const result = new Map<string, string>
+
+    for (const [id, entries] of this.allElementInfo.entries()) {
+      // Searcing for an element's id highlights it
+      if (id === searchString)
+        result.set(id, "#880000");
+
+      for (const [key, value] of entries.attributes.entries()) {
+        // If the element has an attribute with the search string as key
+        if (key == searchString)
+          result.set(id, "#008800");
+        // If the element has an attribute with the search string as value
+        if (value.value == searchString)
+          result.set(id, "#000088");
+      }
+    }
 
     return result;
   }
