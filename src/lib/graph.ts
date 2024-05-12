@@ -1,24 +1,18 @@
 import { createElementInfoOfGraphAst } from './astInfo';
 import type { ElementInfo, GraphInfo } from './astInfo';
 import { parse, stringify } from '@ts-graphviz/ast';
+import type { DotASTNode, GraphASTNode } from '@ts-graphviz/ast';
 
 export class Graph {
   id: string;
-  source: string;
   // Mapping containing ast info for every element in the graph, including the graph itself
   astElementInfo: Map<string, ElementInfo>;
 
   children: Graph[];
   parent: Graph | null;
 
-  constructor(id: string, source: string, addWarning?: (warning: string)=>void) {
+  constructor(id: string, ast: GraphASTNode, addWarning?: (warning: string)=>void) {
     this.id = id;
-    this.source = source;
-
-    const ast = parse(source).children[0];
-    if (ast.type !== 'Graph')
-      throw new Error('Top level ast node is not a Graph!');
-
     this.astElementInfo = createElementInfoOfGraphAst(ast, this.id, addWarning);
 
     this.children = [];
@@ -42,9 +36,17 @@ export class Graph {
   }
 
   getSubgraphIds(): string[] {
-    // FIXME: Quick and dirty extraction
-    const subgraphAttribute = /SUBGRAPH="([_a-zA-Z0-9]+)"/gm;
-    return [...this.source.matchAll(subgraphAttribute)].map((it) => it[1]);
+    const subgraphs: string[] = [];
+    const subgraphRegex = /SUBGRAPH\s*=\s*"([^<>"]*)"/ig;
+
+    for (const element of this.astElementInfo.values()) {
+      const label = element.attributes.get("label");
+      if (label && label.quoted === "html")
+        for (const match of label.value.matchAll(subgraphRegex))
+          subgraphs.push(match[1]);
+    }
+
+    return subgraphs;
   }
 
   // Assigns the given parent, unless the Graph already has a parent, or it would create a cycle
@@ -91,7 +93,7 @@ export class GraphTree {
     const graphs = new Map<string, Graph>();
 
     // FIXME: Create a more robust method for separating graphs
-    const digraphStart = /digraph\s+([_a-zA-Z0-9]+)\b/gm;
+    const digraphStart = /digraph\s+([_a-zA-Z0-9]*)\s+{/gm;
     let start = digraphStart.exec(source);
 
     while (start != null) {
@@ -100,15 +102,25 @@ export class GraphTree {
       let name = start[1];
       const graphSource = source.substring(start.index, next ? next.index : source.length);
 
-      while (graphs.has(name)) {
+      // Make sure graphs get a unique id, either ad hoc or by suffixing with underscores
+      if (name === undefined) {
+        let suffix = 0;
+        do {
+          name = `adHocGraphId${suffix++}`;
+        } while (graphs.has(name));
+      }
+      else if (graphs.has(name)) {
         addWarning(`Multiple graphs share id: '${name}', adding a suffix.`);
-        name = name + "_"
+        do {
+          name = name + "_";
+        } while (graphs.has(name));
       }
 
       try {
-        graphs.set(name, new Graph(name, graphSource, addWarning));
+        const ast = parse(graphSource);
+        graphs.set(name, new Graph(name, ast.children[0] as GraphASTNode, addWarning));
       } catch(e: any) {
-        addWarning(`Graph ${name}: ${e.message}`);
+        addWarning(`Parse error in ${name}: ${e.message}`);
       }
       start = next;
     }

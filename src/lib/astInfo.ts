@@ -98,7 +98,7 @@ export class PortInfo extends ElementInfo {
 
     // Find the starting TD tag that was used to define this port
     const escapedPortId = escapeHTML(this.id);
-    const startingTagRegex = new RegExp(`<TD[^<>]*PORT\s*=\s*"${escapedPortId}"[^<>]*>`, 'i');
+    const startingTagRegex = new RegExp(`<[^<>]*PORT\\s*=\\s*"${escapedPortId}"[^<>]*>`, 'i');
     const oldNodeLabel = nodeLabelAttribute.value.value;
     const oldTagMatch = startingTagRegex.exec(oldNodeLabel);
     if (oldTagMatch === null) throw new Error('Unable to find the TD tag again. Where did it go?');
@@ -108,12 +108,12 @@ export class PortInfo extends ElementInfo {
     const newIdAttribute = `id="${escapedNewId}"`;
 
     // Remove it if there already is an id="" attribute
-    const idAttributeRegex = /id\s*=\s*\"[^"]*\"/i;
+    const idAttributeRegex = /id\s*=\s*"[^"]*"/i;
     const oldTagWithoutId = oldTag.replace(idAttributeRegex, '');
 
     // Check if there is a href="" attribute. We use href=" " as a hack.
     // https://stackoverflow.com/a/47248797
-    const hrefAttributeRegex = /href\s*=\s*\"[^"]*\"/i;
+    const hrefAttributeRegex = /href\s*=\s*"[^"]*"/i;
     const missingHref = hrefAttributeRegex.exec(oldTag) === null;
 
     // Add the new id to the tag
@@ -266,7 +266,7 @@ function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, Element
     // html table labels may have table cells with custom ports
     const label: Attribute | undefined = attributes.get('label');
     if (label && label.quoted === 'html') {
-      const portRegex = /<TD[^<>"]*("[^<>"]*"[^<>"]*)*\sport\s*=\s*"([^"]*)"[^<>]*>/gi;
+      const portRegex = /<[^<>"]*("[^<>"]*"[^<>"]*)*\sPORT\s*=\s*"([^"]*)"[^<>]*>/gi;
       for (const match of label.value.matchAll(portRegex)) {
         const fullTag = match[0];
         const portId = match[2];

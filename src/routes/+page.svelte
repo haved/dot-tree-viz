@@ -110,7 +110,7 @@
           <button on:click={clearSearch}>Clear search</button>
         {/if}
       {:else}
-        <input bind:value={textInput} />
+        <textarea rows="1" cols="30" bind:value={textInput} class="graphInput" />
         <button on:click={importGraphsFromTextField}>Import</button>
         {#if $history}
           <div class="vertical-bar"></div>
@@ -169,6 +169,9 @@
     gap: 4px;
     align-items: stretch;
   }
+ .graphInput {
+   resize: none;
+ }
   .vertical-bar {
     width: 1px;
     margin-left: 2px;
