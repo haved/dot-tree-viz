@@ -32,7 +32,10 @@ export class Graph {
    */
   getDotSourceWithIds(idPrefix: string): string {
     for (const element of this.astElementInfo.values()) element.writePrefixedIdToAST(idPrefix);
-    return stringify(this.getGraphInfo().astNode);
+    const dotSource = stringify(this.getGraphInfo().astNode);
+
+    // Workaround for ts-graphviz #1202: https://github.com/ts-graphviz/ts-graphviz/issues/1202
+    return dotSource.replaceAll("\\\\", "\\");
   }
 
   /**
@@ -132,7 +135,6 @@ export class GraphTree {
 
       try {
         const ast = parse(graphSource);
-
         graphs.set(name, new Graph(name, ast.children[0] as GraphASTNode, addWarning));
       } catch(e: any) {
         addWarning(`Parse error in ${name}: ${e.message}`);
