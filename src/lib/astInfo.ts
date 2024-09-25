@@ -318,7 +318,8 @@ export function createElementInfoOfGraphAst(
       const targetsAreNodes = fromNode instanceof NodeInfo && toNode instanceof NodeInfo;
       if (targetsAreNodes) {
         addToMap(element, toNode.edges, addWarning);
-        addToMap(element, fromNode.edges, addWarning);
+        if (toNode !== fromNode)
+          addToMap(element, fromNode.edges, addWarning);
       } else if (addWarning) {
         addWarning(`edge ${element.id} has targets that are not nodes!`);
       }
