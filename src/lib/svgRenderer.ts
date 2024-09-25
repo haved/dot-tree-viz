@@ -15,6 +15,7 @@ export class RenderedSvg {
   static async renderGraphAsSvg(graph: Graph, idPrefix: string): Promise<RenderedSvg> {
     const augmentedSource = graph.getDotSourceWithIds(idPrefix);
     const viz = await instance();
+    console.log(augmentedSource);
     const svgElement = viz.renderSVGElement(augmentedSource);
 
     // Cleanup related to href=" " hack to get ids on ports

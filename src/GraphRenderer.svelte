@@ -6,10 +6,12 @@
   export let graph: Graph;
   export let renderIdPrefix: string;
   export let highlightedElements: Map<string, string> | undefined;
+  // To facilitate resizing
+  export let width: number | undefined;
+  export let growToFit: boolean | undefined;
 
-  let svgContainer: HTMLElement | undefined;
-  let renderedSvg: RenderedSvg | undefined;
-  let svgElement: SVGSVGElement | undefined;
+ let svgContainer: HTMLElement | undefined;
+ let renderedSvg: RenderedSvg | undefined;
 
  $: graph, renderIdPrefix, onGraphChange();
  $: svgContainer, renderedSvg, onSvgElementChange();
@@ -29,18 +31,18 @@
   }
 
   function updateSvgHighlights() {
-      if (renderedSvg === undefined)
-          return;
+    if (renderedSvg === undefined)
+      return;
 
-      // Remove all existing highlights from the svg
-      renderedSvg.svgElement.querySelectorAll(".__highlight__").forEach(it => it.remove());
+    // Remove all existing highlights from the svg
+    renderedSvg.svgElement.querySelectorAll(".__highlight__").forEach(it => it.remove());
 
-      for (const [elementId, color] of highlightedElements.entries()) {
-          const fullId = `${renderIdPrefix}${elementId}`;
-          const elementInSvg = renderedSvg.svgElement.querySelector('#' + fullId);
-          if (elementInSvg !== null)
-              cloneAllStrokesAsHighlight(elementInSvg, fullId, color);
-      }
+    for (const [elementId, color] of highlightedElements.entries()) {
+      const fullId = `${renderIdPrefix}${elementId}`;
+      const elementInSvg = renderedSvg.svgElement.querySelector('#' + fullId);
+      if (elementInSvg !== null)
+        cloneAllStrokesAsHighlight(elementInSvg, fullId, color);
+    }
   }
 
   function cloneAllStrokesAsHighlight(node: Element, fullId: string, color: string) {
@@ -80,8 +82,8 @@
     });
   }
 
-  function onCloseClicked(event) {
-    dispatch('closeGraphRenderer');
+  function onCloseClicked() {
+    dispatch('closeTab');
   }
 
   // Variables related to panning and zooming
@@ -133,11 +135,11 @@
   }
 </script>
 
-<div class="graphRenderer">
+<div class="graphRenderer" style="width:{width}px;" class:growToFit={growToFit}>
     <div class="tabBar">
         <div class="tab">
             {graph.id}
-            <div class="closeButton" on:click={onCloseClicked}>x</div>
+            <button class="closeButton" on:click={onCloseClicked}>x</button>
         </div>
     </div>
     <div
@@ -154,10 +156,14 @@
 
 <style>
     .graphRenderer {
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      min-width: 60px;
+    }
+
+    .growToFit {
+      flex-grow: 1;
     }
 
     .tabBar {
@@ -197,8 +203,6 @@
          position: absolute;
          top: 0;
          left: 0;
-         /*width: 100%;*/
-         /*height: 100%;*/
          user-select: none;
          transform: scale(var(--scale)) translateX(var(--panX)) translateY(var(--panY));
      }

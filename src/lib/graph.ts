@@ -1,7 +1,7 @@
 import { createElementInfoOfGraphAst } from './astInfo';
 import type { ElementInfo, GraphInfo } from './astInfo';
 import { parse, stringify } from '@ts-graphviz/ast';
-import type { DotASTNode, GraphASTNode } from '@ts-graphviz/ast';
+import type { GraphASTNode } from '@ts-graphviz/ast';
 
 export class Graph {
   id: string;
@@ -35,15 +35,27 @@ export class Graph {
     return stringify(this.getGraphInfo().astNode);
   }
 
+  /**
+   * Looks at all elements of the graph, and lists all attributes called "_subgraph"
+   */
   getSubgraphIds(): string[] {
     const subgraphs: string[] = [];
-    const subgraphRegex = /SUBGRAPH\s*=\s*"([^<>"]*)"/ig;
+    const subgraphRegex = /_SUBGRAPH\s*=\s*"([^<>"]*)"/ig;
 
     for (const element of this.astElementInfo.values()) {
+
+      // If the label is an html string, look for a subgraph attribute inside it
       const label = element.attributes.get("label");
       if (label && label.quoted === "html")
         for (const match of label.value.matchAll(subgraphRegex))
           subgraphs.push(match[1]);
+
+      // Also look for subgraph among regular attributes
+      for (const [key, value] of element.attributes) {
+        if (key == "_subgraph") {
+          subgraphs.push(value.value);
+        }
+      }
     }
 
     return subgraphs;
@@ -92,18 +104,20 @@ export class GraphTree {
   static createGraphTree(source: string, addWarning: (warning: string) => void): GraphTree {
     const graphs = new Map<string, Graph>();
 
-    // FIXME: Create a more robust method for separating graphs
-    const digraphStart = /digraph\s+([_a-zA-Z0-9]*)\s+{/gm;
-    let start = digraphStart.exec(source);
+    const unquoted = '(?<quoted>[_a-zA-Z0-9]+)';
+    const quoted = '"(?<quoted>([^\\"]*\\.)*[^\\"]*)"';
+    const digraphStart = `(di)?graph(\\s+(${unquoted}|${quoted}))?\\s*{`;
+    const re = new RegExp(digraphStart, "gm");
+    let start = re.exec(source);
 
     while (start != null) {
-      const next = digraphStart.exec(source);
+      const next = re.exec(source);
 
-      let name = start[1];
+      let name = start.groups!["quoted"] ?? start.groups!["quoted"];
       const graphSource = source.substring(start.index, next ? next.index : source.length);
 
       // Make sure graphs get a unique id, either ad hoc or by suffixing with underscores
-      if (name === undefined) {
+      if (name === undefined || name === "") {
         let suffix = 0;
         do {
           name = `adHocGraphId${suffix++}`;
@@ -118,6 +132,7 @@ export class GraphTree {
 
       try {
         const ast = parse(graphSource);
+
         graphs.set(name, new Graph(name, ast.children[0] as GraphASTNode, addWarning));
       } catch(e: any) {
         addWarning(`Parse error in ${name}: ${e.message}`);
@@ -200,45 +215,74 @@ export function createGraphTree(source: string, addWarning: (warning: string) =>
   return GraphTree.createGraphTree(source, addWarning);
 }
 
+export class OpenGraphTab {
+  tabId: number;
+
+  // The graph opened in this tab
+  graph: Graph;
+
+  // The full selection we are a part of
+  graphTreeSelection: GraphTreeSelection;
+
+  constructor(tabId: number, graph: Graph, graphTreeSelection: GraphTreeSelection) {
+    this.tabId = tabId;
+    this.graph = graph;
+    this.graphTreeSelection = graphTreeSelection;
+  }
+
+  isLastTab(): boolean {
+    return this.graphTreeSelection.getOpenGraphs().at(-1)?.tabId == this.tabId;
+  }
+
+  graphId(): string {
+    return this.graph.id;
+  }
+}
+
 export class GraphTreeSelection {
   graphTree: GraphTree;
-  // Each open graph is given a unique number,
-  nextUniqueOpenId: number;
-  openGraphs: [number, string][];
+
+  nextUniqueTabId: number;
+  openTabs: OpenGraphTab[];
 
   constructor(graphTree: GraphTree) {
     this.graphTree = graphTree;
-    this.nextUniqueOpenId = 1;
-    this.openGraphs = [];
+    this.nextUniqueTabId = 1;
+    this.openTabs = [];
   }
 
   isGraphOpen(name: string): boolean {
-    return this.openGraphs.filter(([_, it]) => it === name).length > 0;
+    for (const tab of this.openTabs) {
+      if (tab.graphId() === name)
+        return true;
+    }
+    return false;
   }
 
-  getOpenGraphs(): [number, Graph][] {
-    return this.openGraphs.map(([n, it]) => [n, this.graphTree.getGraph(it)!]);
+  getOpenGraphs(): OpenGraphTab[] {
+    return this.openTabs;
   }
 
   // Returns the same class again to easily trigger a svelte redraw
   selectGraph(name: string, allowDuplicate: boolean): GraphTreeSelection {
     if (this.isGraphOpen(name) && !allowDuplicate) {
       // Close all currently open instances of this graph
-      this.openGraphs = this.openGraphs.filter(([_, it]) => it !== name);
-    } else if (this.graphTree.getGraph(name) === undefined) {
-      // Do nothing, the graph doesn't exist
+      this.openTabs = this.openTabs.filter(tab => tab.graphId() !== name);
     } else {
-      // Open a new instance of the given graph
-      this.openGraphs.push([this.nextUniqueOpenId, name]);
-      this.nextUniqueOpenId++;
+      const graph = this.graphTree.getGraph(name);
+      if (graph !== undefined)
+      {
+        this.openTabs.push(new OpenGraphTab(this.nextUniqueTabId, graph, this));
+        this.nextUniqueTabId++;
+      }
     }
 
     return this;
   }
 
   // Returns the same class again to easily trigger a svelte redraw
-  closeGraph(openNumber: number): GraphTreeSelection {
-    this.openGraphs = this.openGraphs.filter(([n, _]) => n !== openNumber);
+  closeGraph(tabId: number): GraphTreeSelection {
+    this.openTabs = this.openTabs.filter(tab => tab.tabId !== tabId);
     return this;
   }
 }

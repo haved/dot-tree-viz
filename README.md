@@ -1,38 +1,41 @@
-# create-svelte
 
-Everything you need to build a Svelte project, powered by [`create-svelte`](https://github.com/sveltejs/kit/tree/main/packages/create-svelte).
+# DotTreeViz
+A simple web app for rendering multiple GraphViz graphs at once.
+The graph elements can also contain custom attributes, which will be listed when clicked.
 
-## Creating a project
+Open the [Web app](https://dot-tree-viz.vercel.app/)!
 
-If you're seeing this, you've probably already done this step. Congrats!
+The input format is `dot`, but multiple graphs can be concatinated.
+Using the `_subgraph` attribute, a hirerarchy of graphs is made.
+```dot
+digraph graph0 {
+  a [label="See Subgraph" _subgraph=graph1];
+}
+digraph graph1 {
+ node[shape=box];
+ x [label="X"];
+ x -> x[label="loop"];
+}
+```
 
-```bash
-# create a new project in the current directory
-npm create svelte@latest
+## Dependencies
+To install all dependencies, use
 
-# create a new project in my-app
-npm create svelte@latest my-app
+``` bash
+npm install
 ```
 
 ## Developing
-
-Once you've created a project and installed dependencies with `npm install` (or `pnpm install` or `yarn`), start a development server:
-
+Start a development server and open the app in your browser using:
 ```bash
-npm run dev
-
-# or start the server and open the app in a new browser tab
 npm run dev -- --open
 ```
 
 ## Building
-
-To create a production version of your app:
-
+Create a production version using:
 ```bash
 npm run build
 ```
 
 You can preview the production build with `npm run preview`.
 
-> To deploy your app, you may need to install an [adapter](https://kit.svelte.dev/docs/adapters) for your target environment.

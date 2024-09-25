@@ -1,6 +1,5 @@
 <script lang="ts">
- import { Graph, GraphTree } from '$lib/graph';
- import { createEventDispatcher } from 'svelte';
+ import { GraphTree } from '$lib/graph';
 
  export let graphTree: GraphTree;
  export let graphElementSelected: string | undefined;
@@ -11,10 +10,11 @@
 
 {#if graphElementSelected !== undefined}
   <div class="elementInfoArea">
+    <div class="line"></div>
     <div class="elementName">{graphElementSelected}</div>
     <div class="attributes">
         {#each selectedElementAttributes as [key, value] (key)}
-        {@const info = graphTree.getElementInfo(value.value)}
+          {@const info = graphTree.getElementInfo(value.value)}
             <div class="attribute">
           <div class="key">
             {key}
@@ -26,7 +26,7 @@
                   {value.value}
               {/if}
 
-              {#if info}
+              {#if info && info.id !== info.graphId}
                   <span class="graphId">
                       ({info.graphId})
                   </span>
@@ -39,29 +39,39 @@
 {/if}
 
 <style>
-  .elementInfoArea {
-    width: 300px;
-    background-color: #fff;
-    overflow-y: auto;
+ .elementInfoArea {
+   height: 300px;
+   min-height: 0;
 
-    padding: 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+
+   & > :not(.line) {
+     padding: 5px;
+   }
+
+   & .line {
+     height: 4px;
+     background-color: #ccc;
+   }
+ }
 
   .elementName {
     font-size: 1.4rem;
+    background-color: #eee;
   }
 
-  .attributes {
-    display: flex;
-    flex-direction: column;
-    align-items: stretch;
-    background-color: #fff;
-    gap: 5px;
-  }
+ .attributes {
+   display: flex;
+   flex-direction: column;
+   align-items: stretch;
+   background-color: #fff;
+   gap: 5px;
+
+   flex-grow: 1;
+   overflow-y: auto;
+ }
 
   .attribute {
     display: flex;

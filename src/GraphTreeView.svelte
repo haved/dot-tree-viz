@@ -4,11 +4,10 @@
 
  export let graphTree: GraphTree;
  export let graphTreeSelection: GraphTreeSelection;
- export let open: boolean;
 </script>
 
 {#if open}
-    <div class="sideBar" class:open={open}>
+    <div class="treeItems">
         {#each graphTree.rootGraphs as graph (graph.id)}
             <SidebarItem {graph} {graphTreeSelection} on:openGraph />
         {/each}
@@ -16,9 +15,11 @@
 {/if}
 
 <style>
- .sideBar {
-     width: 300px;
+ .treeItems {
      background-color: #eee;
      overflow-y: auto;
+     display: flex;
+     flex-direction: column;
+     align-items: stretch;
  }
 </style>

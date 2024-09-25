@@ -5,10 +5,16 @@ import { browser } from '$app/environment';
 export function localStore<T>(id: string, defaultData: T) {
   if (browser) {
     const existingValue = localStorage.getItem(id);
-    if (existingValue) defaultData = JSON.parse(existingValue);
+    if (existingValue) {
+      try {
+        defaultData = JSON.parse(existingValue);
+      } catch(SyntaxError) {
+        // Do nothing, just use the default value
+      }
+    }
   }
 
-  let store: Writable<T> = writable(defaultData);
+  const store: Writable<T> = writable(defaultData);
 
   store.subscribe((newValue: T) => {
     browser && localStorage.setItem(id, JSON.stringify(newValue));
