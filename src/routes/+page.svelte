@@ -1,18 +1,16 @@
 <script lang="ts">
   import { GraphTree, GraphTreeSelection, createGraphTree } from '$lib/graph.ts';
-  import { localStore } from '$lib/localStore.ts';
-  import { get } from 'svelte/store';
   import GraphTreeView from '../GraphTreeView.svelte';
   import GraphsArea from '../GraphsArea.svelte';
   import ElementInfoArea from '../ElementInfoArea.svelte';
+  import FileUploadButton from '../FileUploadButton.svelte';
   import FileDropBox from '../FileDropBox.svelte';
 
-  let textInput: string = '';
+ let textInput: string = '';
   let sidebarOpen: boolean = true;
   let graphTree: GraphTree | null = null;
   let graphTreeSelection: GraphTreeSelection | null = null;
   let warnings: [string] = [];
-  const history = localStore<string | null>('history', null);
   let graphElementSelected: string | undefined;
   let searchString: string = '';
 
@@ -21,39 +19,30 @@
   }
 
   function importGraphs(source: string) {
+    clearGraphs();
     graphTree = createGraphTree(source, addWarning);
     graphTreeSelection = new GraphTreeSelection(graphTree);
   }
   $: graphsLoaded = graphTree !== null;
 
   function importGraphsFromTextField() {
-    history.set(textInput);
     importGraphs(textInput);
     textInput = '';
   }
 
-  function importGraphsFromHistory() {
-    importGraphs(get(history));
-  }
-
-  function importDroppedFile(event) {
+  function importUploadedFile(event) {
     const text = event.detail?.text;
-    history.set(text);
     importGraphs(text);
   }
 
-  function clearHistory() {
-    history.set(null);
-  }
-
   function clearSearch() {
-    searchString = undefined;
+    searchString = '';
   }
 
   function clearGraphs() {
     warnings = [];
     textInput = '';
-    searchString = '';
+    clearSearch();
     graphTree = null;
     graphTreeSelection = null;
   }
@@ -107,8 +96,9 @@
         <div>To start, enter one or more GraphViz graphs:</div>
       {/if}
 
-      <div class="toolrow">
-        {#if graphsLoaded}
+      {#if graphsLoaded}
+        <div class="toolrow">
+
           <button on:click={() => sidebarOpen = !sidebarOpen}>
             {sidebarOpen ? "Hide sidebar" : "Show sidebar"}
           </button>
@@ -117,20 +107,16 @@
           {#if searching}
             <button on:click={clearSearch}>Clear search</button>
           {/if}
-        {:else}
-          <textarea rows="1" cols="30" bind:value={textInput} class="graphInput" />
-          <button on:click={importGraphsFromTextField}>Import</button>
-
-          {#if $history}
-            <div class="vertical-bar"></div>
-            <button on:click={importGraphsFromHistory}>Open last import</button>
-            <button on:click={clearHistory}>Clear history</button>
-          {/if}
-        {/if}
-      </div>
+        </div>
+      {/if}
     </div>
     {#if !graphsLoaded}
-      <FileDropBox on:fileDropped={importDroppedFile}/>
+      <textarea cols="30" bind:value={textInput} class="graphInput" />
+      <button on:click={importGraphsFromTextField}>Import</button>
+      <div class="vertical-bar"/>
+      <FileUploadButton on:fileUploaded={importUploadedFile}/>
+      <div class="vertical-bar"/>
+      <FileDropBox on:fileDropped={importUploadedFile}/>
     {/if}
   </nav>
 
@@ -164,6 +150,7 @@
     border-bottom: 1px solid #00000055;
     box-shadow: 0px 2px 2px #00000055;
 
+    height: 70px;
     display: flex;
     flex-direction: row;
     padding: 6px;
