@@ -12,6 +12,16 @@
      allowDuplicate: event.shiftKey
    });
  }
+
+ // Show the Graph's label in the sidebar
+ let title = graph.getGraphInfo().attributes.get("label")?.value ?? "";
+
+ function withMaxLength(str: string, length: number) {
+     if (str.length > length)
+         return str.slice(0, length) + "...";
+     else
+         return str;
+ }
 </script>
 
 <div
@@ -20,7 +30,9 @@
   on:mousedown|stopPropagation={openGraph}
   on:contextmenu|preventDefault
 >
-  <div class="graphName">{graph.id}</div>
+  <div class="graphName">
+      <span class="graph_id">{graph.id}</span> {withMaxLength(title, 20)}
+  </div>
   <div class="subgraphList">
     {#each graph.children as child (child.id)}
       <svelte:self graph={child} {graphTreeSelection} on:openGraph />
@@ -54,6 +66,11 @@
    margin-top: 3px;
    margin-bottom: 3px;
    user-select: none;
+ }
+
+ .graph_id {
+   color: #222;
+   font-size: 0.8rem;
  }
 
   .subgraphList {
