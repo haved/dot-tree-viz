@@ -245,6 +245,9 @@ function findOrCreateAttribute(node: ASTNode, attributeName: string): AttributeA
 }
 
 function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, ElementInfo>, addWarning?: (warning: string)=>void) {
+  if (astNode.type === 'Dot')
+    throw new Error("AST traversing is starting too far out");
+
   // Create a map of the attributes
   const attributes = new Map<string, Attribute>();
   for (const child of astNode.children) {

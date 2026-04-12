@@ -14,7 +14,7 @@
  }
 
  // Show the Graph's label in the sidebar
- let title = graph.getGraphInfo().attributes.get("label")?.value ?? "";
+ let title = graph.getLabel() ?? "";
 
  function withMaxLength(str: string, length: number) {
      if (str.length > length)

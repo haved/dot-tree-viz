@@ -6,7 +6,7 @@
   import FileUploadButton from '../FileUploadButton.svelte';
   import FileDropBox from '../FileDropBox.svelte';
 
- let textInput: string = '';
+  let textInput: string = '';
   let sidebarOpen: boolean = true;
   let graphTree: GraphTree | null = null;
   let graphTreeSelection: GraphTreeSelection | null = null;
@@ -52,7 +52,7 @@
     const allowDuplicate = event.detail?.allowDuplicate ?? false;
 
     if (graphId)
-      graphTreeSelection = graphTreeSelection.selectGraph(graphId, allowDuplicate);
+      graphTreeSelection = graphTreeSelection.selectGraph(graphId, allowDuplicate, addWarning);
   }
 
   function closeTab(event: any) {
