@@ -56,8 +56,9 @@ function escapeGraphVizString(text: string) {
 }
 
 function printStringAsHtmlAttributeName(name: string) {
-  // TODO replace everything that is not a-z A-Z
-  return name.replace(" ", "-");
+  // Attributes can only consist of a-z, upper and lower case, and dashes.
+  // Replace everything else with -
+  return name.replace(/[^-a-zA-Z]/g, "-");
 }
 
 /**
@@ -128,6 +129,9 @@ function printInOutNode(nodeId: string, node: JsonInOutNode) {
       result += `PORT="${portId}" `;
       if (port.attr !== undefined)
         result += printAttributesAsHtml(port.attr);
+      // If the attributes do not specify a color, fill the port with white
+      if (port.attr?.BGCOLOR === undefined)
+        result += 'BGCOLOR="white" ';
       if (port.label !== undefined)
       {
         result += "><FONT POINT-SIZE=\"10\">";
@@ -156,6 +160,9 @@ function printInOutNode(nodeId: string, node: JsonInOutNode) {
 
   if (node.htmlTableAttr !== undefined)
     result += printAttributesAsHtml(node.htmlTableAttr)
+  // If the attributes do not specify a color, fill the port with white
+  if (node.htmlTableAttr?.BGCOLOR === undefined)
+    result += 'BGCOLOR="white" ';
 
   result += ">\n";
   result += "\t\t\t<TR><TD CELLPADDING=\"1\">";
