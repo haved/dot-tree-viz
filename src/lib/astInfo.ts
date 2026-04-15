@@ -73,12 +73,9 @@ export class NodeInfo extends ElementInfo {
     idAttribute.value.quoted = true;
   }
 
-  addHighlightsFromSelecting(map: Map<string, string>)
-  {
-    for (const port of this.ports.keys())
-      map.set(port, "#008800");
-    for (const edge of this.edges.keys())
-      map.set(edge, "#008888");
+  addHighlightsFromSelecting(map: Map<string, string>) {
+    for (const port of this.ports.keys()) map.set(port, '#008800');
+    for (const edge of this.edges.keys()) map.set(edge, '#008888');
   }
 }
 
@@ -125,9 +122,8 @@ export class PortInfo extends ElementInfo {
     nodeLabelAttribute.value.value = newNodeLabel;
   }
 
-  addHighlightsFromSelecting(map: Map<string, string>)
-  {
-    map.set(this.node.id, "#008800");
+  addHighlightsFromSelecting(map: Map<string, string>) {
+    map.set(this.node.id, '#008800');
   }
 }
 
@@ -169,21 +165,22 @@ export class EdgeInfo extends ElementInfo {
     idAttribute.value.quoted = true;
   }
 
-  addHighlightsFromSelecting(map: Map<string, string>)
-  {
-    const fro = this.getTarget("from");
-    map.set(fro.nodeId, "#008800");
-    if (fro.portId !== undefined)
-      map.set(fro.portId, "#888800");
+  addHighlightsFromSelecting(map: Map<string, string>) {
+    const fro = this.getTarget('from');
+    map.set(fro.nodeId, '#008800');
+    if (fro.portId !== undefined) map.set(fro.portId, '#888800');
 
-    const to = this.getTarget("to");
-    map.set(to.nodeId, "#000088");
-    if (to.portId !== undefined)
-      map.set(to.portId, "#880088");
+    const to = this.getTarget('to');
+    map.set(to.nodeId, '#000088');
+    if (to.portId !== undefined) map.set(to.portId, '#880088');
   }
 }
 
-function addToMap(elementInfo: ElementInfo, map: Map<string, ElementInfo>, addWarning?: (message: string)=>void) {
+function addToMap(
+  elementInfo: ElementInfo,
+  map: Map<string, ElementInfo>,
+  addWarning?: (message: string) => void
+) {
   if (!map.has(elementInfo.id)) {
     map.set(elementInfo.id, elementInfo);
   } else if (addWarning) {
@@ -244,9 +241,13 @@ function findOrCreateAttribute(node: ASTNode, attributeName: string): AttributeA
   return createdAttribute;
 }
 
-function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, ElementInfo>, addWarning?: (warning: string)=>void) {
-  if (astNode.type === 'Dot')
-    throw new Error("AST traversing is starting too far out");
+function traverseAst(
+  astNode: ASTNode,
+  graphId: string,
+  map: Map<string, ElementInfo>,
+  addWarning?: (warning: string) => void
+) {
+  if (astNode.type === 'Dot') throw new Error('AST traversing is starting too far out');
 
   // Create a map of the attributes
   const attributes = new Map<string, Attribute>();
@@ -306,7 +307,7 @@ function traverseAst(astNode: ASTNode, graphId: string, map: Map<string, Element
 export function createElementInfoOfGraphAst(
   graph: GraphASTNode,
   graphId: string,
-  addWarning?: (warning: string)=>void
+  addWarning?: (warning: string) => void
 ): Map<string, ElementInfo> {
   const map = new Map<string, ElementInfo>();
   traverseAst(graph, graphId, map, addWarning);
@@ -321,8 +322,7 @@ export function createElementInfoOfGraphAst(
       const targetsAreNodes = fromNode instanceof NodeInfo && toNode instanceof NodeInfo;
       if (targetsAreNodes) {
         addToMap(element, toNode.edges, addWarning);
-        if (toNode !== fromNode)
-          addToMap(element, fromNode.edges, addWarning);
+        if (toNode !== fromNode) addToMap(element, fromNode.edges, addWarning);
       } else if (addWarning) {
         addWarning(`edge ${element.id} has targets that are not nodes!`);
       }
