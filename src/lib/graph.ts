@@ -1,4 +1,4 @@
-import { createElementInfoOfGraphAst } from './astInfo';
+import { createElementInfoOfGraphVizAst, createElementInfoOfJson } from './astInfo';
 import type { ElementInfo, GraphInfo } from './astInfo';
 import { convertJsonToGraphViz } from './jsonGraph';
 import type { JsonGraph } from './jsonGraph';
@@ -8,15 +8,19 @@ import type { GraphASTNode } from '@ts-graphviz/ast';
 export class Graph {
   id: string;
 
-  // An optional JSON description of the graph, that can later be materialized to GraphViz
-  jsonObject: JsonGraph | null;
+  // A graph can be described in one of two ways:
 
-  // Mapping containing ast info for every element in the graph, including the graph itself
-  astElementInfo: Map<string, ElementInfo> | null;
+  // A json description of the graph (preferred)
+  jsonGraph: JsonGraph | null;
+  // A graphviz ast description of the graph
+  graphVizAst: GraphASTNode | null;
 
-  // Graph label, even if the graph has yet to materialize
+  // Info about the graph elements, indexed by their ids
+  // Includes info about the graph itself
+  elementInfos: Map<string, ElementInfo>;
+
+  // The label of the graph
   label: string | undefined;
-
   // Graph tree info
   children: Graph[];
   parent: Graph | null;
@@ -25,8 +29,9 @@ export class Graph {
     this.id = id;
     this.label = undefined;
 
-    this.jsonObject = null;
-    this.astElementInfo = null;
+    this.jsonGraph = null;
+    this.graphVizAst = null;
+    this.elementInfos = new Map<string, ElementInfo>();
 
     this.label = undefined;
     this.children = [];
@@ -34,48 +39,36 @@ export class Graph {
   }
 
   /**
-   * Sets the optional JSON source for this graph, which can later be used to create its GraphViz AST.
+   * Assigns a json description of a graph, and extracts element info
    */
-  setJsonObject(jsonObject: JsonObject) {
-    if (this.hasGraphVizAst() || this.jsonObject !== null)
+  setJsonObject(jsonGraph: JsonGraph, addWarning?: (string) => void) {
+    if (this.jsonGraph !== null || this.graphVizAst !== null)
       throw new Error('Cannot set JsonObject on graph with exisiting data');
-    this.jsonObject = jsonObject;
-    this.label = jsonObject.label;
+    this.jsonGraph = jsonGraph;
+
+    this.elementInfos = createElementInfoOfJson(this.id, jsonGraph, addWarning);
+
+    this.label ??= jsonGraph.label;
   }
 
   /**
-   * Retuns true if the Graph has a GraphViz AST, either provided or created from a JSON description
+   * Assigns a GraphVizAst to the graph, and extracts element info
    */
-  hasGraphVizAst(): boolean {
-    return this.astElementInfo !== null;
-  }
+  setGraphVizAst(ast: GraphASTNode, addWarning?: (string) => void) {
+    if (this.jsonGraph !== null || this.graphVizAst !== null)
+      throw new Error('Cannot set JsonObject on graph with exisiting data');
 
-  /**
-   * Sets the GraphViz AST to render this graph from.
-   */
-  setGraphVizAst(ast: GraphASTNode, addWarning?: (warning: string) => void) {
-    if (this.hasGraphVizAst()) throw new Error('Graph already has a GraphViz AST');
-    this.astElementInfo = createElementInfoOfGraphAst(ast, this.id, addWarning);
+    this.elementInfos = createElementInfoOfGraphVizAst(ast, this.id, addWarning);
+
     // If we do not already have a label, extract it from the graph's element info
     this.label ??= this.getGraphInfo().attributes.get('label')?.value;
-  }
-
-  /**
-   * Uses the Graph's json definiton to create a GraphViz AST
-   */
-  materializeGraphVizAst(addWarning?: (warning: string) => void) {
-    if (this.jsonObject === null) throw new Error('Graph does not have a json description');
-
-    const graphviz = convertJsonToGraphViz(this.jsonObject);
-    const ast = parse(graphviz).children[0] as GraphASTNode;
-    this.setGraphVizAst(ast, addWarning);
   }
 
   /**
    * Gets the GraphInfo corresponding to the graph itself
    */
   getGraphInfo(): GraphInfo {
-    return this.astElementInfo.get(this.id) as GraphInfo;
+    return this.elementInfos.get(this.id) as GraphInfo;
   }
 
   getLabel(): string | undefined {
@@ -86,36 +79,20 @@ export class Graph {
    * Adds or overrides the id attribute of all graph elements, and returns the new ast as dot source.
    * The new id is equal to the prefix, plus the element's own id.
    */
-  getDotSourceWithIds(idPrefix: string): string {
-    for (const element of this.astElementInfo.values()) element.writePrefixedIdToAST(idPrefix);
-    const dotSource = stringify(this.getGraphInfo().astNode);
+  renderWithIdPrefix(idPrefix: string, graphTree: GraphTree): string {
+    if (this.jsonGraph !== null) {
+      return convertJsonToGraphViz(this.id, this.jsonGraph, idPrefix, graphTree);
+    } else if (this.graphVizAst !== null) {
+      // Update the GraphViz ast with id prefix
+      for (const element of this.elementInfos.values())
+        element.writePrefixedIdToGraphVizAst(idPrefix);
 
-    // Workaround for ts-graphviz #1202: https://github.com/ts-graphviz/ts-graphviz/issues/1202
-    return dotSource.replaceAll('\\\\', '\\');
-  }
+      const dotSource = stringify(this.getGraphInfo().astNode);
 
-  /**
-   * Looks at all elements of the graph, and lists all attributes called "_subgraph"
-   */
-  getSubgraphIds(): string[] {
-    const subgraphs: string[] = [];
-    const subgraphRegex = /_SUBGRAPH\s*=\s*"([^<>"]*)"/gi;
-
-    for (const element of this.astElementInfo.values()) {
-      // If the label is an html string, look for a subgraph attribute inside it
-      const label = element.attributes.get('label');
-      if (label && label.quoted === 'html')
-        for (const match of label.value.matchAll(subgraphRegex)) subgraphs.push(match[1]);
-
-      // Also look for subgraph among regular attributes
-      for (const [key, value] of element.attributes) {
-        if (key == '_subgraph') {
-          subgraphs.push(value.value);
-        }
-      }
+      // Workaround for ts-graphviz #1202: https://github.com/ts-graphviz/ts-graphviz/issues/1202
+      return dotSource.replaceAll('\\\\', '\\');
     }
-
-    return subgraphs;
+    throw new Error('Graph has no definition');
   }
 
   // Assigns the given parent, unless the Graph already has a parent, or it would create a cycle
@@ -152,7 +129,6 @@ export class GraphTree {
     // For all graphs, register all their elements in a common ElementInfo map
     this.allElementInfo = new Map<string, ElementInfo>();
     for (const graph of graphs.values()) {
-      if (!graph.hasGraphVizAst()) continue;
       this._registerGraphElements(graph, addWarning);
     }
   }
@@ -161,22 +137,8 @@ export class GraphTree {
     return this.graphs.get(name);
   }
 
-  /**
-   * Gets the graph with the given name, and also materializes it if it isn't already.
-   */
-  getMaterializedGraph(name: string, addWarning: (warning: string) => void): Graph | undefined {
-    const graph = this.graphs.get(name);
-    if (graph === undefined) return undefined;
-
-    if (graph.hasGraphVizAst()) return graph;
-
-    graph.materializeGraphVizAst(addWarning);
-    this._registerGraphElements(graph);
-    return graph;
-  }
-
   _registerGraphElements(graph: Graph, addWarning: (warning: string) => void) {
-    for (const element of graph.astElementInfo.values()) {
+    for (const element of graph.elementInfos.values()) {
       if (this.allElementInfo.has(element.id))
         addWarning(`Multiple graph elements have the id ${element.id}`);
       else this.allElementInfo.set(element.id, element);
@@ -256,15 +218,15 @@ export class GraphTree {
     const graphs = new Map<string, Graph>();
 
     const allGraphData = JSON.parse(source) as { [string]: JsonGraph };
-    for (const name in allGraphData) {
-      const graph = new Graph(name);
-      graph.setJsonObject(allGraphData[name]);
-      graphs.set(name, graph);
+    for (const graphId in allGraphData) {
+      const graph = new Graph(graphId);
+      graph.setJsonObject(allGraphData[graphId]);
+      graphs.set(graphId, graph);
     }
 
     // Go through and connect child graphs to parents
     for (const graph of graphs.values()) {
-      const parentGraph: string = graph.jsonObject.parentGraph;
+      const parentGraph: string = graph.jsonGraph.parentGraph;
       if (parentGraph === undefined) continue;
 
       const parentGraphObject = graphs.get(parentGraph);
@@ -276,7 +238,7 @@ export class GraphTree {
   }
 
   static createGraphTree(source: string, addWarning: (warning: string) => void): GraphTree {
-    // If the input looks like JSON, create a tree of unmaterialized graphs
+    // If the input looks like JSON, use the json parser
     if (source.startsWith('{')) return GraphTree.createGraphTreeFromJson(source, addWarning);
 
     return GraphTree.createGraphTreeFromGraphViz(source, addWarning);
@@ -362,11 +324,11 @@ export class GraphTreeSelection {
     this.openTabs = [];
   }
 
-  isGraphOpen(name: string): boolean {
+  isGraphOpen(name: string): OpenGraphTab | null {
     for (const tab of this.openTabs) {
-      if (tab.graphId() === name) return true;
+      if (tab.graphId() === name) return tab;
     }
-    return false;
+    return null;
   }
 
   getOpenGraphs(): OpenGraphTab[] {
@@ -374,20 +336,27 @@ export class GraphTreeSelection {
   }
 
   // Returns the same class again to easily trigger a svelte redraw
-  selectGraph(
-    name: string,
-    allowDuplicate: boolean,
-    addWarning: (warning: string) => void
-  ): GraphTreeSelection {
-    if (this.isGraphOpen(name) && !allowDuplicate) {
-      // Close all currently open instances of this graph
-      this.openTabs = this.openTabs.filter((tab) => tab.graphId() !== name);
-    } else {
-      const graph = this.graphTree.getMaterializedGraph(name, addWarning);
-      if (graph !== undefined) {
-        this.openTabs.push(new OpenGraphTab(this.nextUniqueTabId, graph, this));
-        this.nextUniqueTabId++;
+  selectGraph(name: string, ifOpen: 'close' | 'focus' | 'duplicate'): GraphTreeSelection {
+    const alreadyOpen = this.isGraphOpen(name);
+    if (alreadyOpen !== null) {
+      if (ifOpen === 'close') {
+        // Close all currently open instances of this graph
+        this.openTabs = this.openTabs.filter((tab) => tab.graphId() !== name);
+        return this;
+      } else if (ifOpen === 'focus') {
+        // We do not really have a way of focusing, but do not open another
+        return this;
+      } else if (ifOpen === 'duplicate') {
+        // Fallthrough to open another tab
+      } else {
+        throw new Error(`Unknown ifOpen: {ifOpen}`);
       }
+    }
+
+    const graph = this.graphTree.getGraph(name);
+    if (graph !== undefined) {
+      this.openTabs.push(new OpenGraphTab(this.nextUniqueTabId, graph, this));
+      this.nextUniqueTabId++;
     }
 
     return this;

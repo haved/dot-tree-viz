@@ -12,15 +12,19 @@ export class RenderedSvg {
     this.svgElement = svgElement;
   }
 
-  static async renderGraphAsSvg(graph: Graph, idPrefix: string): Promise<RenderedSvg> {
-    const augmentedSource = graph.getDotSourceWithIds(idPrefix);
+  static async renderGraphAsSvg(
+    graph: Graph,
+    idPrefix: string,
+    graphTree: GraphTree
+  ): Promise<RenderedSvg> {
+    const augmentedSource = graph.renderWithIdPrefix(idPrefix, graphTree);
     const viz = await instance();
     const svgElement = viz.renderSVGElement(augmentedSource);
 
-    // Cleanup related to href=" " hack to get ids on ports
+    // Cleanup related to href=" " hack to get ids on ports and subgraphs
     const extraPrefix = `a_${idPrefix}`;
     function removeLinkPrefix(node: Element) {
-      // The href=" " hack on ports creates id's prefixed with a_$idPrefix. Remove the _a
+      // The href=" " hack on ports creates id's prefixed with a_$idPrefix. Remove the a_
       if (node.id.startsWith(extraPrefix)) {
         node.id = node.id.slice(2);
       }

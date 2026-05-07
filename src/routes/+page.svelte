@@ -49,10 +49,10 @@
 
   function openGraph(event: any) {
     const graphId: string | undefined = event.detail?.graphId;
-    const allowDuplicate = event.detail?.allowDuplicate ?? false;
+    // What to do if the graph is already open in a tab
+    const ifOpen = event.detail?.ifOpen ?? 'focus';
 
-    if (graphId)
-      graphTreeSelection = graphTreeSelection.selectGraph(graphId, allowDuplicate, addWarning);
+    if (graphId) graphTreeSelection = graphTreeSelection.selectGraph(graphId, ifOpen);
   }
 
   function closeTab(event: any) {
@@ -60,7 +60,7 @@
     graphTreeSelection = graphTreeSelection.closeGraph(tabNumber);
   }
 
-  function selectGraphElement(event: any) {
+  function selectElement(event: any) {
     const elementId: string | undefined = event.detail?.elementId;
 
     // Selecting an element removes the search string
@@ -130,7 +130,8 @@
       <GraphsArea
         graphs={graphTreeSelection}
         {highlightedElements}
-        on:selectGraphElement={selectGraphElement}
+        on:selectElement={selectElement}
+        on:openGraph={openGraph}
         on:closeTab={closeTab}
       />
     {/if}
@@ -192,7 +193,7 @@
     min-height: 0;
   }
   .sideBar {
-    width: 300px;
+    width: 350px;
     background-color: #eee;
     &:not(.open) {
       display: none;

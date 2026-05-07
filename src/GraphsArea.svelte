@@ -53,10 +53,12 @@
     <GraphRenderer
       graph={tab.graph}
       renderIdPrefix="tab{tab.tabId}-"
+      graphTree={graphs.graphTree}
       {highlightedElements}
       width={tabWidths.get(tab.tabId)}
       growToFit={tab.isLastTab()}
-      on:selectGraphElement
+      on:selectElement
+      on:openGraph
       on:closeTab={() => closeTab(tab.tabId)}
     />
     {#if !tab.isLastTab()}

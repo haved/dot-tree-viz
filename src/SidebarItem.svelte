@@ -11,12 +11,12 @@
   function openGraph(event) {
     dispatch('openGraph', {
       graphId: graph.id,
-      allowDuplicate: event.shiftKey
+      ifOpen: event.shiftKey ? 'duplicate' : 'close'
     });
   }
 
   // Show the Graph's label in the sidebar
-  let title = graph.getLabel() ?? '';
+  let title = graph.getLabel() ?? graph.id;
 
   function withMaxLength(str: string, length: number) {
     if (str.length > length) return str.slice(0, length) + '...';
@@ -41,8 +41,7 @@
       </div>
     {/if}
 
-    <div class="sidebarItemTitle">
-      <span class="graphId">{graph.id}</span>
+    <div class="sidebarItemTitle" title={graph.id}>
       {withMaxLength(title, 20)}
     </div>
   </div>

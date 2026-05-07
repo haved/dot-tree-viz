@@ -21,10 +21,10 @@
             {key}
           </div>
           <div class="value">
-            {#if value.value.length > 100}
-              {value.value.slice(0, 100)}...
+            {#if value.length > 100}
+              {value.slice(0, 100)}...
             {:else}
-              {value.value}
+              {value}
             {/if}
 
             {#if info && info.id !== info.graphId}
@@ -42,7 +42,6 @@
 <style>
   .elementInfoArea {
     height: 300px;
-    min-height: 0;
 
     display: flex;
     flex-direction: column;

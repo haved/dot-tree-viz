@@ -3,7 +3,11 @@
   import { RenderedSvg } from '$lib/svgRenderer';
   import { createEventDispatcher } from 'svelte';
 
+  // The graph we are rendering
   export let graph: Graph;
+  // Rendering may use information form other the graphs to improve the output
+  export let graphTree: GraphTree;
+  // To be able to distinguish between elements from different rendered graphs
   export let renderIdPrefix: string;
   export let highlightedElements: Map<string, string> | undefined;
   // To facilitate resizing
@@ -20,7 +24,7 @@
   async function onGraphChange() {
     // Don't re-render if the current options are identical to the previous render
     if (graph === renderedSvg?.graph && renderIdPrefix === renderedSvg?.idPrefix) return;
-    renderedSvg = await RenderedSvg.renderGraphAsSvg(graph, renderIdPrefix);
+    renderedSvg = await RenderedSvg.renderGraphAsSvg(graph, renderIdPrefix, graphTree);
   }
 
   function onSvgElementChange() {
@@ -66,16 +70,30 @@
   function onClick(event) {
     event.preventDefault();
 
+    // Find the innermost element that has an id belonging to a graph element
     let target: Element = event.target;
-
     while (!target.id?.startsWith(renderIdPrefix)) {
       target = target.parentNode;
       if (target === null || target === svgContainer) return;
     }
 
-    dispatch('selectGraphElement', {
-      elementId: target.id.slice(renderIdPrefix.length)
-    });
+    let id = target.id.slice(renderIdPrefix.length);
+
+    if (id.startsWith('subgraph-')) {
+      let subgraphId = id.slice('subgraph-'.length);
+      dispatch('openGraph', {
+        graphId: subgraphId
+      });
+    } else {
+      dispatch('selectElement', {
+        elementId: id
+      });
+    }
+  }
+
+  function onParentClicked() {
+    // The button is only visible when the graph has a parent
+    dispatch('openGraph', { graphId: graph.parent.id });
   }
 
   function onCloseClicked() {
@@ -144,7 +162,16 @@
 <div class="graphRenderer" style="width:{width}px;" class:growToFit>
   <div class="tabBar">
     <div class="tab">
-      {graph.id}
+      <span title={graph.id}>
+        {graph.label ?? graph.id}
+      </span>
+      {#if graph.parent !== null}
+        <button
+          class="parentButton"
+          title="open parent: {graph.parent.label ?? graph.parent.id}"
+          on:click={onParentClicked}>^</button
+        >
+      {/if}
       <button class="closeButton" on:click={onCloseClicked}>x</button>
     </div>
   </div>
