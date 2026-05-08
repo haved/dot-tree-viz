@@ -58,6 +58,7 @@ export class Graph {
     if (this.jsonGraph !== null || this.graphVizAst !== null)
       throw new Error('Cannot set JsonObject on graph with exisiting data');
 
+    this.graphVizAst = ast;
     this.elementInfos = createElementInfoOfGraphVizAst(ast, this.id, addWarning);
 
     // If we do not already have a label, extract it from the graph's element info
@@ -87,7 +88,7 @@ export class Graph {
       for (const element of this.elementInfos.values())
         element.writePrefixedIdToGraphVizAst(idPrefix);
 
-      const dotSource = stringify(this.getGraphInfo().astNode);
+      const dotSource = stringify(this.graphVizAst);
 
       // Workaround for ts-graphviz #1202: https://github.com/ts-graphviz/ts-graphviz/issues/1202
       return dotSource.replaceAll('\\\\', '\\');
@@ -187,24 +188,9 @@ export class GraphTree {
         graphs.set(name, graph);
       } catch (e: any) {
         addWarning(`Parse error in ${name}: ${e.message}`);
+        console.log(e);
       }
       start = next;
-    }
-
-    // Now that all graphs have a instance of Graph, connect parents and children
-    for (const graph of graphs.values()) {
-      const children = graph.getSubgraphIds();
-      for (const child of children) {
-        if (graphs.has(child)) {
-          try {
-            graphs.get(child)!.assignToParent(graph);
-          } catch (e: any) {
-            addWarning(e.message);
-          }
-        } else {
-          addWarning(`Unknown subgraph ${child}`);
-        }
-      }
     }
 
     return new GraphTree(graphs);
@@ -270,9 +256,9 @@ export class GraphTree {
 
       for (const [key, value] of entries.attributes.entries()) {
         // If the element has an attribute with the search string as key
-        if (key == searchString) result.set(id, '#008800');
+        if (key.includes(searchString)) result.set(id, '#008800');
         // If the element has an attribute with the search string as value
-        if (value.value == searchString) result.set(id, '#000088');
+        if (value.includes(searchString)) result.set(id, '#000088');
       }
     }
 
@@ -333,6 +319,20 @@ export class GraphTreeSelection {
 
   getOpenGraphs(): OpenGraphTab[] {
     return this.openTabs;
+  }
+
+  // Among all graphs, returns the id of the one with the shortest name containing the needle
+  getGraphByName(needle: string): string | undefined {
+    let resultId: string | undefined = undefined;
+    let shortestLen = 100000;
+    for (const [id, graph] of this.graphTree.graphs.entries()) {
+      const label = graph.label;
+      if (label.length >= shortestLen) continue;
+      if (!label.includes(needle)) continue;
+      resultId = id;
+      shortestLen = label.length;
+    }
+    return resultId;
   }
 
   // Returns the same class again to easily trigger a svelte redraw

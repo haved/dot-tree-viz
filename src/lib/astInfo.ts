@@ -49,7 +49,7 @@ export class NodeInfo extends ElementInfo {
 
   // References to elements attached to this node
   ports: Map<string, PortInfo>;
-  // Edges includes edges going to/from the node directly, or to one of its ports
+  // Edges, includes edges going to/from the node directly, or to one of its ports
   edges: Map<string, EdgeInfo>;
 
   constructor(id: string, graphId: string, attributes: Map<string, string>, astNode?: NodeASTNode) {
@@ -72,11 +72,16 @@ export class NodeInfo extends ElementInfo {
 }
 
 export class PortInfo extends ElementInfo {
+  // The node this port belongs to
   node: NodeInfo;
+
+  // Edges connected to this port
+  edges: Map<string, EdgeInfo>;
 
   constructor(id: string, graphId: string, attributes: Map<string, string>, node: NodeInfo) {
     super(id, graphId, attributes);
     this.node = node;
+    this.edges = new Map();
   }
 
   writePrefixedIdToGraphVizAst(idPrefix: string) {
@@ -85,6 +90,7 @@ export class PortInfo extends ElementInfo {
 
   addHighlightsFromSelecting(map: Map<string, string>) {
     map.set(this.node.id, '#008800');
+    for (const edge of this.edges.keys()) map.set(edge, '#008888');
   }
 }
 
@@ -187,17 +193,23 @@ function addToMap(
  * For all edges in the element info map, add it to the nodes it is connected to
  */
 function connectEdgesToNodes(map: Map<string, ElementInfo>, addWarning?: (string) => void) {
+  const connectEdgeToInfo = (edge: EdgeInfo, info?: ElementInfo) => {
+    if (info instanceof NodeInfo || info instanceof PortInfo) {
+      info.edges.set(edge.id, edge);
+    } else {
+      addWarning(`Edge ${edge.id} is connected to ${info?.id}, which is not a node or port`);
+    }
+  };
+
+  const connectEdgeToTarget = (edge: EdgeInfo, target: EdgeTarget) => {
+    if (target.portId !== undefined) connectEdgeToInfo(edge, map.get(target.portId));
+    connectEdgeToInfo(edge, map.get(target.nodeId));
+  };
+
   for (const element of map.values()) {
     if (element instanceof EdgeInfo) {
-      const fromNode = map.get(element.from.nodeId);
-      const toNode = map.get(element.to.nodeId);
-      const targetsAreNodes = fromNode instanceof NodeInfo && toNode instanceof NodeInfo;
-      if (targetsAreNodes) {
-        addToMap(element, toNode.edges, addWarning);
-        if (toNode !== fromNode) addToMap(element, fromNode.edges, addWarning);
-      } else if (addWarning) {
-        addWarning(`edge ${element.id} has targets that are not nodes!`);
-      }
+      connectEdgeToTarget(element, element.from);
+      connectEdgeToTarget(element, element.to);
     }
   }
 }
@@ -205,8 +217,11 @@ function connectEdgesToNodes(map: Map<string, ElementInfo>, addWarning?: (string
 // Functions for converting a JsonGraph into ElementInfo objects
 
 function getAttributeMap(jsonElement: JsonElement): Map<string, string> {
-  if (jsonElement.attr === undefined) return new Map();
-  return new Map(Object.entries(jsonElement.attr));
+  const map = new Map<string, string>();
+  for (const [key, value] of Object.entries(jsonElement.attr ?? {})) map.set(key, value);
+  if (jsonElement.label !== undefined) map.set('label', jsonElement.label);
+  if (jsonElement.obj !== undefined) map.set('obj', jsonElement.label);
+  return map;
 }
 
 export function createElementInfoOfJson(
@@ -369,8 +384,8 @@ function traverseAst(
     let id: string | undefined = attributes.get('id')?.value;
     if (id === undefined) id = createUniqueEdgeId();
 
-    const from = edgeTargetFromAst(this.astNode.targets[0]);
-    const to = edgeTargetFromAst(this.astNode.targets[1]);
+    const from = edgeTargetFromAst(astNode.targets[0]);
+    const to = edgeTargetFromAst(astNode.targets[1]);
 
     addToMap(new EdgeInfo(id, graphId, from, to, attributes, astNode), map, addWarning);
   }

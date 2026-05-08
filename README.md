@@ -5,17 +5,41 @@ The graph elements can also contain custom attributes, which will be listed when
 
 Open the [Web app](https://dot-tree-viz.vercel.app/)!
 
-The input format is `dot`, but multiple graphs can be concatinated.
-Using the `_subgraph` attribute, a hirerarchy of graphs is made.
+The input format is either plain one or more plain `dot` graphs,
+or a `json` based format that looks like:
 
-```dot
-digraph graph0 {
-  a [label="See Subgraph" _subgraph=graph1];
-}
-digraph graph1 {
- node[shape=box];
- x [label="X"];
- x -> x[label="loop"];
+```json
+{
+  "graph0": {
+    "label": "My graph",
+    "nodes": {
+      "node0": {
+        "type": "inout",
+        "label": "Node with subgraph",
+        "subgraphs": ["graph1"]
+      }
+    },
+    "results": {
+      "res0": {
+        "label": "Result"
+      }
+    },
+    "edges": {
+      "edge0": {
+        "from": "node0",
+        "to": "res0",
+        "dir": "forward"
+      }
+    }
+  },
+  "graph1": {
+    "nodes": {
+      "node1": {
+        "label": "Hey",
+        "obj": "0x55d5ec278050"
+      }
+    }
+  }
 }
 ```
 

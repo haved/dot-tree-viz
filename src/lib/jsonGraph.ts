@@ -246,7 +246,7 @@ class GraphVizPrinter {
     // Default graph attributes
     result += 'penwidth=6;\n';
     // User specified graph attributes
-    result += this.printElement(graph) + ';\n';
+    result += this.printElement(graph) + '\n';
 
     if (graph.arguments !== undefined);
     result += this.printOrderedSubgraph(graph.arguments, 'source');

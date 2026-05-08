@@ -39,6 +39,13 @@
     searchString = '';
   }
 
+  function searchForGraph() {
+    const foundGraph = graphTreeSelection.getGraphByName(searchString);
+    if (foundGraph !== undefined)
+      graphTreeSelection = graphTreeSelection.selectGraph(foundGraph, 'focus');
+    searchString = '';
+  }
+
   function clearGraphs() {
     warnings = [];
     textInput = '';
@@ -107,6 +114,7 @@
           <input bind:value={searchString} placeholder="Search..." />
           {#if searching}
             <button on:click={clearSearch}>Clear search</button>
+            <button on:click={searchForGraph}>Open graph</button>
           {/if}
         </div>
       {/if}
