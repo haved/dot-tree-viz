@@ -222,7 +222,7 @@ function getAttributeMap(jsonElement: JsonElement): Map<string, string> {
   const map = new Map<string, string>();
   for (const [key, value] of Object.entries(jsonElement.attr ?? {})) map.set(key, value);
   if (jsonElement.label !== undefined) map.set('label', jsonElement.label);
-  if (jsonElement.obj !== undefined) map.set('obj', jsonElement.label);
+  if (jsonElement.obj !== undefined) map.set('obj', jsonElement.obj);
   return map;
 }
 
