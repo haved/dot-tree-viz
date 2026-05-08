@@ -85,7 +85,7 @@ export class PortInfo extends ElementInfo {
   }
 
   writePrefixedIdToGraphVizAst(idPrefix: string) {
-    setPortIdInGraphVizLabel(this.astNode, this.id, idPrefix);
+    setPortIdInGraphVizLabel(this.node.astNode, this.id, idPrefix);
   }
 
   addHighlightsFromSelecting(map: Map<string, string>) {
@@ -193,17 +193,19 @@ function addToMap(
  * For all edges in the element info map, add it to the nodes it is connected to
  */
 function connectEdgesToNodes(map: Map<string, ElementInfo>, addWarning?: (string) => void) {
-  const connectEdgeToInfo = (edge: EdgeInfo, info?: ElementInfo) => {
+  const connectEdgeToElement = (edge: EdgeInfo, id: string) => {
+    const info = map.get(id);
     if (info instanceof NodeInfo || info instanceof PortInfo) {
       info.edges.set(edge.id, edge);
     } else {
-      addWarning(`Edge ${edge.id} is connected to ${info?.id}, which is not a node or port`);
+      if (addWarning !== undefined)
+        addWarning(`Edge ${edge.id} is connected to ${id}, which is not a node or port`);
     }
   };
 
   const connectEdgeToTarget = (edge: EdgeInfo, target: EdgeTarget) => {
-    if (target.portId !== undefined) connectEdgeToInfo(edge, map.get(target.portId));
-    connectEdgeToInfo(edge, map.get(target.nodeId));
+    if (target.portId !== undefined) connectEdgeToElement(edge, target.portId);
+    connectEdgeToElement(edge, target.nodeId);
   };
 
   for (const element of map.values()) {
@@ -267,7 +269,7 @@ export function createElementInfoOfJson(
     addToMap(edgeInfo, map, addWarning);
   }
 
-  connectEdgesToNodes(map);
+  connectEdgesToNodes(map, addWarning);
   return map;
 }
 
@@ -358,9 +360,9 @@ function traverseAst(
 
     // html table labels may have table cells with custom ports
     const label: AttributeASTNode | undefined = findAttribute(astNode, 'label');
-    if (label && label.quoted === 'html') {
+    if (label && label.value.quoted === 'html') {
       const portRegex = /<[^<>"]*("[^<>"]*"[^<>"]*)*\sPORT\s*=\s*"([^"]*)"[^<>]*>/gi;
-      for (const match of label.value.matchAll(portRegex)) {
+      for (const match of label.value.value.matchAll(portRegex)) {
         const fullTag = match[0];
         const portId = match[2];
 
@@ -438,6 +440,6 @@ export function createElementInfoOfGraphVizAst(
 ): Map<string, ElementInfo> {
   const map = new Map<string, ElementInfo>();
   traverseAst(graph, graphId, map, addWarning);
-  connectEdgesToNodes(map);
+  connectEdgesToNodes(map, addWarning);
   return map;
 }
